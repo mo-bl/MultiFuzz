@@ -112,7 +112,7 @@ impl Comparisons {
         self.u8.len() + self.u16.len() + self.u32.len() + self.u64.len() + self.call.len()
     }
 
-    pub(crate) fn get(&self, cursor: CmpCursor) -> Option<(u64, Operands)> {
+    pub(crate) fn get(&'_ self, cursor: CmpCursor) -> Option<(u64, Operands<'_>)> {
         match cursor.array {
             0 => self.u8.get(cursor.offset).map(|&(addr, operands)| (addr, operands.into())),
             1 => self.u16.get(cursor.offset).map(|&(addr, operands)| (addr, operands.into())),

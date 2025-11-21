@@ -6,12 +6,12 @@ use std::{
 use anyhow::Context;
 use indexmap::IndexMap;
 use object::{
-    read::elf::{FileHeader, ProgramHeader, SectionHeader},
     Endianness, Object, ObjectSection, ObjectSymbol,
+    read::elf::{FileHeader, ProgramHeader, SectionHeader},
 };
 
 use crate::config::{
-    cortexm_memory_map, FirmwareConfig, Memory, Permissions, TriggerKind, TriggerMode,
+    FirmwareConfig, Memory, Permissions, TriggerKind, TriggerMode, cortexm_memory_map,
 };
 
 pub fn generate_and_save(path: &Path, force: bool) -> anyhow::Result<()> {
@@ -116,7 +116,7 @@ pub fn from_elf(path: &Path) -> anyhow::Result<FirmwareConfig> {
 
     // Start with initial cortexm memory map.
     let mut memory = cortexm_memory_map();
-    let ram_range = memory.get("ram").map(|x| (x.base_addr..x.base_addr + x.size));
+    let ram_range = memory.get("ram").map(|x| x.base_addr..x.base_addr + x.size);
 
     for section in obj_file.sections() {
         tracing::info!(

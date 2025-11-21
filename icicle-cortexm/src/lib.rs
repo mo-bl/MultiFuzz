@@ -11,19 +11,19 @@ use std::{cell::UnsafeCell, os::raw::c_void, path::PathBuf};
 use anyhow::Context as _;
 use icicle_fuzzing::parse_addr_or_symbol;
 use icicle_vm::{
-    cpu::{
-        debug_info::{DebugInfo, SourceLocation, SymbolKind},
-        mem::{perm, IoHandler, IoMemory, Mapping},
-        utils::get_u64,
-        Cpu, Exception, ExceptionCode, ValueSource,
-    },
     VmExit,
+    cpu::{
+        Cpu, Exception, ExceptionCode, ValueSource,
+        debug_info::{DebugInfo, SourceLocation, SymbolKind},
+        mem::{IoHandler, IoMemory, Mapping, perm},
+        utils::get_u64,
+    },
 };
 
 use crate::{
     fuzzware::uc_engine,
     mmio::FuzzwareMmioHandler,
-    unicorn_api::{map_uc_err, Context},
+    unicorn_api::{Context, map_uc_err},
 };
 pub use unicorn_api::{IRQ_NUMBER_ADDR, TIMER_CHOICE_ADDR};
 
@@ -357,12 +357,7 @@ impl<I: IoMemory + 'static> CortexmTarget<FuzzwareMmioHandler<I>> {
             let reg = vm.cpu.arch.sleigh.get_varnode(&patch.register).ok_or_else(|| {
                 anyhow::format_err!("Unknown register in `patch` for {addr:#x}: {}", patch.register)
             })?;
-            icicle_vm::cpu::lifter::register_value_patcher(
-                &mut vm.lifter,
-                addr,
-                reg,
-                patch.value,
-            );
+            icicle_vm::cpu::lifter::register_value_patcher(&mut vm.lifter, addr, reg, patch.value);
         }
 
         for (addr, value) in &config.mem_patch {
@@ -647,14 +642,15 @@ impl FuzzwareEnvironment {
 
     /// Triggers the next time based interrupt to occur (if time-based interrupts are enabled).
     fn force_trigger_next_time_based_interrupt(&mut self) {
-        unsafe {
-            let fw = unsafe { &mut *(*self.uc_ptr).fw };
-            let num_triggers = fw.num_triggers_inuse as usize;
-            let triggers = &mut fw.triggers[..num_triggers];
-            if let Some(trigger) = triggers
-                .iter_mut()
-                .find(|trigger| trigger.fuzz_mode == fuzzware::IRQ_TRIGGER_MODE_TIME as u16)
-            {
+        let fw = unsafe { &mut *(*self.uc_ptr).fw };
+        let num_triggers = fw.num_triggers_inuse as usize;
+        let triggers = &mut fw.triggers[..num_triggers];
+        if let Some(trigger) = triggers
+            .iter_mut()
+            .find(|trigger| trigger.fuzz_mode == fuzzware::IRQ_TRIGGER_MODE_TIME as u16)
+        {
+            // Safety: calling into C code with valid pointers.
+            unsafe {
                 fuzzware::interrupt_trigger_timer_cb(
                     self.uc_ptr,
                     0,

@@ -247,7 +247,7 @@ impl I2SReplaceStage {
             let max_len = self
                 .parent_prefix
                 .get(stream_key)
-                .map_or(fuzzer.features.max_i2s_bytes, |prefix| (dst.bytes.len() - *prefix));
+                .map_or(fuzzer.features.max_i2s_bytes, |prefix| dst.bytes.len() - *prefix);
             self.cursor.finder.offset =
                 self.cursor.finder.offset.max(dst.bytes.len().saturating_sub(max_len));
 
