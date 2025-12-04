@@ -161,7 +161,7 @@ fn replay_bench(mut vm: Vm, mut target: CortexmMultiStream, trials: u64) -> anyh
         tracing::warn!("Failed to dump JIT table: {e}")
     }
 
-    let expected_icount = vm.cpu.icount();
+    let mut expected_icount = vm.cpu.icount();
     eprintln!("[icicle] exited with: {exit:?} (icount = {expected_icount})");
 
     // We allow replaying from part way through the input if provided from an environment variable.
@@ -173,25 +173,18 @@ fn replay_bench(mut vm: Vm, mut target: CortexmMultiStream, trials: u64) -> anyh
 
         vm.add_breakpoint(bp);
         let exit = target.run(&mut vm);
+        let pc = vm.cpu.read_pc();
         anyhow::ensure!(
-            matches!(exit, Ok(VmExit::Breakpoint)),
-            "Failed to hit breakpoint at: {bp:#x} when `REPLAY_FROM` is set (exited with: {exit:?} at: {:#x})",
-            vm.cpu.read_pc()
+            matches!(exit, Ok(VmExit::Breakpoint)) && pc == bp,
+            "Failed to hit breakpoint at: {bp:#x} when `REPLAY_FROM` is set (exited with: {exit:?} at: {pc:#x})",
         );
         vm.remove_breakpoint(bp);
 
-        eprintln!("[icicle] hit break: {exit:?} (icount = {expected_icount})");
+        eprintln!("[icicle] hit break: pc={pc:#x} {exit:?} (icount = {})", vm.cpu.icount());
+        expected_icount += 1;
 
         snapshot = vm.snapshot();
         cursor_snapshot = target.get_mmio_handler(&mut vm).unwrap().source.snapshot_cursors();
-    }
-
-    vm.recompile();
-
-    // Dump JIT function ID -> guest address mapping for analysis.
-    if let Err(e) = vm.jit.dump_jit_mapping("jit_table.txt".as_ref(), vm.env.debug_info().unwrap())
-    {
-        tracing::warn!("Failed to dump JIT table: {e}")
     }
 
     let start = std::time::Instant::now();

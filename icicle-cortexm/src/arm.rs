@@ -1,5 +1,5 @@
 use icicle_vm::{
-    cpu::{lifter::BlockState, Arch, Cpu, ValueSource},
+    cpu::{Arch, Cpu, ValueSource, lifter::BlockState},
     Vm,
 };
 use pcode::Op;
@@ -128,6 +128,14 @@ pub(crate) fn add_arm_extras(vm: &mut Vm, nvic_changed_hook: pcode::HookId) {
             // Changing this variable could cause an interrupt to be triggered, so terminate the
             // block here.
             true
+        },
+    );
+
+    vm.add_op_injector(
+        "setISAMode",
+        move |_: &Arch, _, _, _output: pcode::VarNode, _b: &mut BlockState| {
+            // Just a nop.
+            false
         },
     );
 

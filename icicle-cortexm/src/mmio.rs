@@ -100,6 +100,17 @@ impl<I> FuzzwareMmioHandler<I> {
     }
 }
 
+#[inline(always)]
+fn copy_u32(dst: &mut [u8], src: u32) {
+    match dst.len() {
+        1 => dst[0] = src as u8,
+        2 => dst[..2].copy_from_slice(&(src as u16).to_le_bytes()),
+        3 => dst[..3].copy_from_slice(&src.to_le_bytes()[..3]),
+        4 => dst[..4].copy_from_slice(&src.to_le_bytes()),
+        _ => unreachable!("copy_small_slice supports only up to 4 bytes"),
+    }
+}
+
 impl<I: IoMemory> IoMemory for FuzzwareMmioHandler<I> {
     fn read(&mut self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         unsafe { fuzzware::reload_fuzz_consumption_timer(self.uc_ptr) };
@@ -135,7 +146,7 @@ impl<I: IoMemory> IoMemory for FuzzwareMmioHandler<I> {
                 },
                 ModelKind::Passthrough { id } => self.passthrough[*id],
             };
-            buf.copy_from_slice(&value.to_le_bytes()[..buf.len()]);
+            copy_u32(buf, value);
             return Ok(());
         }
 
@@ -144,7 +155,7 @@ impl<I: IoMemory> IoMemory for FuzzwareMmioHandler<I> {
     }
 
     fn write(&mut self, addr: u64, value: &[u8]) -> MemResult<()> {
-        if self.models.is_empty() {
+        if self.models.is_empty() || !self.passthrough.is_empty() {
             return Ok(());
         }
 

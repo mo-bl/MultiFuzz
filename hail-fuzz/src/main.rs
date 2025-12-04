@@ -80,7 +80,10 @@ fn run() -> anyhow::Result<()> {
     }
 
     if std::env::var_os("GHIDRA_SRC").is_none() {
-        std::env::set_var("GHIDRA_SRC", "./ghidra");
+        // Safety: There are no other threads running yet.
+        unsafe {
+            std::env::set_var("GHIDRA_SRC", "./ghidra");
+        }
     }
 
     let mut fuzzer_config = FuzzConfig::load().expect("Invalid config");
